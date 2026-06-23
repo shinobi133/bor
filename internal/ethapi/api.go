@@ -2084,10 +2084,16 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		return common.Hash{}, err
 	}
 	// Print a log with full tx details for manual investigations and interventions
-	head := b.CurrentBlock()
-	signer := types.MakeSigner(b.ChainConfig(), head.Number, head.Time)
-	from, err := types.Sender(signer, tx)
-
+        // Optimize: Skip costly runtime signer generation if sender is already known or cached
+        var from common.Address
+        var err error
+        if cached, _ := types.Sender(types.LatestSigner(b.ChainConfig()), tx); cached != (common.Address{}) {
+                from = cached
+        } else {
+                head := b.CurrentBlock()
+                signer := types.MakeSigner(b.ChainConfig(), head.Number, head.Time)
+                from, err = types.Sender(signer, tx)
+        }
 	if err != nil && (!b.UnprotectedAllowed() || (b.UnprotectedAllowed() && err != types.ErrInvalidChainId)) {
 		return common.Hash{}, err
 	}
